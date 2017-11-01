@@ -53,6 +53,8 @@ tf.flags.DEFINE_string("checkpoint_path", None,
                        """Full path to the checkpoint to be loaded. If None,
                        the latest checkpoint in the model dir is used.""")
 tf.flags.DEFINE_integer("batch_size", 32, "the train/dev batch size")
+tf.flags.DEFINE_string("save_pb_dir", './predict', "directory to save pb from")
+tf.flags.DEFINE_boolean("save_pb_during_infer", True, "flag is true if u want to save pb during inference")
 
 FLAGS = tf.flags.FLAGS
 
@@ -105,7 +107,7 @@ def main(_argv):
       input_pipeline=input_pipeline_infer,
       batch_size=FLAGS.batch_size)
 
-  saver = tf.train.Saver()
+  saver = tf.train.Saver(tf.all_variables())
   checkpoint_path = FLAGS.checkpoint_path
   if not checkpoint_path:
     checkpoint_path = tf.train.latest_checkpoint(FLAGS.model_dir)
@@ -113,6 +115,20 @@ def main(_argv):
   def session_init_op(_scaffold, sess):
     saver.restore(sess, checkpoint_path)
     tf.logging.info("Restored model from %s", checkpoint_path)
+
+    if FLAGS.save_pb_during_infer:
+        save_vars = {}
+        for v in tf.trainable_variables():
+            save_vars[v.value().name] = sess.run(v)
+        g2 = tf.Graph()
+        with g2.as_default():
+            consts = {}
+            for k in save_vars.keys():
+                consts[k] = tf.constant(save_vars[k])
+            tf.import_graph_def(sess.graph_def, input_map={name:consts[name] for name in consts.keys()})
+            tf.train.write_graph(g2.as_graph_def(), FLAGS.save_pb_dir, 'rnn.pb' , False)
+            tf.train.write_graph(g2.as_graph_def(), FLAGS.save_pb_dir, 'rnn.txt')
+        tf.logging.info("Save pb down! %s", FLAGS.save_pb_dir)
 
   scaffold = tf.train.Scaffold(init_fn=session_init_op)
   session_creator = tf.train.ChiefSessionCreator(scaffold=scaffold)

@@ -1,23 +1,26 @@
 export PYTHONIOENCODING=UTF-8
 
-export DATA_PATH=/home/xutan/nmt/seq2seq/data/iwslt14.tokenized.de-en
+export DATA_PATH=data/textsum_all
 
-export VOCAB_SOURCE=${DATA_PATH}/vocab.de
-export VOCAB_TARGET=${DATA_PATH}/vocab.en
-export TRAIN_SOURCES=${DATA_PATH}/train.de
-export TRAIN_TARGETS=${DATA_PATH}/train.en
-export DEV_SOURCES=${DATA_PATH}/valid.de
-export DEV_TARGETS=${DATA_PATH}/valid.en
-export TEST_SOURCES=${DATA_PATH}/test.de
-export TEST_TARGETS=${DATA_PATH}/test.en
+export VOCAB_SOURCE=${DATA_PATH}/vocab.x
+export VOCAB_TARGET=${DATA_PATH}/vocab.y
+export TRAIN_SOURCES=${DATA_PATH}/train.x
+export TRAIN_TARGETS=${DATA_PATH}/train.y
+export DEV_SOURCES=${DATA_PATH}/valid.x
+export DEV_TARGETS=${DATA_PATH}/valid.y
+export TEST_SOURCES=${DATA_PATH}/test.x
+export TEST_TARGETS=${DATA_PATH}/test.y
 
 export TRAIN_STEPS=1000000
 
+export CUDA_VISIBLE_DEVICES=5
 
 export MODEL_DIR=${TMPDIR:-/tmp}/nmt_conv_seq2seq
+export MODEL_DIR=./model/textsum_all
 mkdir -p $MODEL_DIR
 
-'''
+export LD_LIBRARY_PATH="/usr/local/cuda-8.0/lib64:/usr/local/cuda-8.0/extras/CUPTI/lib64"
+
 python -m bin.train \
   --config_paths="
       ./example_configs/conv_seq2seq.yml,
@@ -40,53 +43,10 @@ python -m bin.train \
         - $DEV_SOURCES
        target_files:
         - $DEV_TARGETS" \
-  --batch_size 32 \
+  --batch_size 256 \
   --eval_every_n_steps 5000 \
   --train_steps $TRAIN_STEPS \
-  --output_dir $MODEL_DIR
-
-'''
-
-
-export PRED_DIR=${MODEL_DIR}/pred
-mkdir -p ${PRED_DIR}
-'''
-###with greedy search
-python -m bin.infer \
-  --tasks "
-    - class: DecodeText" \
-  --model_dir $MODEL_DIR \
-  --model_params "
-    inference.beam_search.beam_width: 1 
-    decoder.class: seq2seq.decoders.ConvDecoderFairseq" \
-  --input_pipeline "
-    class: ParallelTextInputPipelineFairseq
-    params:
-      source_files:
-        - $TEST_SOURCES" \
-  > ${PRED_DIR}/predictions.txt
-
-'''
-###with beam search
-python -m bin.infer \
-  --tasks "
-    - class: DecodeText
-    - class: DumpBeams
-      params:
-        file: ${PRED_DIR}/beams.npz" \
-  --model_dir $MODEL_DIR \
-  --model_params "
-    inference.beam_search.beam_width: 5 
-    decoder.class: seq2seq.decoders.ConvDecoderFairseqBS" \
-  --input_pipeline "
-    class: ParallelTextInputPipelineFairseq
-    params:
-      source_files:
-        - $TEST_SOURCES" \
-  > ${PRED_DIR}/predictions.txt
-
-
-./bin/tools/multi-bleu.perl ${TEST_TARGETS} < ${PRED_DIR}/predictions.txt
-
+  --output_dir $MODEL_DIR \
+  --gpu_allow_growth True
 
 
