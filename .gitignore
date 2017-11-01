@@ -153,5 +153,18 @@ flycheck_*.el
 # directory configuration
 .dir-locals.el
 
-nohup.out*
 # End of https://www.gitignore.io/api/Emacs
+nohup.out*
+*.swp
+*.swo
+*.sublime-*
+*.pyc
+__pycache__
+tmp/
+node_modules/
+sftp-config.json
+.DS_Store
+*.iml
+*.ipr
+*.iws
+*.idea
